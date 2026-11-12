@@ -16,9 +16,14 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 /**
- * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
- *
- * Destino de navegación/animación de cámara centrado en un punto con nivel de zoom.
+ * =========================================================================================
+ * MODELO DE DATOS DE EVENTOS Y VUELOS DE CÁMARA
+ * =========================================================================================
+ */
+
+/**
+ * Representa la orden para que el MapView vuele suavemente (animateTo)
+ * hacia una coordenada específica con un nivel de zoom determinado.
  */
 data class CameraTarget(
     val latitude: Double,
@@ -28,9 +33,8 @@ data class CameraTarget(
 )
 
 /**
- * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
- *
- * Destino de encuadre inteligente mediante Bounding Box con padding.
+ * Representa la orden para que el MapView realice un encuadre inteligente
+ * (zoomToBoundingBox) ajustando la cámara para mostrar simultáneamente varios lugares.
  */
 data class BoundingBoxTarget(
     val bounds: GeoUtils.GeoBounds,
@@ -38,7 +42,7 @@ data class BoundingBoxTarget(
 )
 
 /**
- * Estado general de la UI para Enigma Atlas.
+ * Estado inmutable completo de la interfaz del Mapa (StateFlow / Jetpack Compose UI State).
  */
 data class MapUiState(
     val searchQuery: String = "",
@@ -58,15 +62,23 @@ data class MapUiState(
     val locationPermissionDenied: Boolean = false,
     val isGpsDisabled: Boolean = false,
 
-    // Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
+    // Control lógico y eventos (equivalente a MapController / OnMapReadyCallback)
     val currentZoomLevel: Double = 2.5,
     val temporaryDiscovery: Pair<Double, Double>? = null,
 
-    // Operaciones del motor de mapas (tiles y gestos)
+    // Operaciones del motor de mapas (tiles, rutas y gestos)
     val isRouteActive: Boolean = false,
     val routeDistanceMeters: Float = 0f
 )
 
+/**
+ * =========================================================================================
+ * GESTOR DE ESTADO REACTIVO: MapViewModel
+ * =========================================================================================
+ *
+ * Administra la lógica de negocio del mapa, filtrado de ubicaciones, ordenamiento por proximidad GPS,
+ * encuadre de cámara mediante Bounding Box, rutas de exploración y sincronización con el MapView.
+ */
 class MapViewModel(
     private val repository: PlacesRepository = PlacesRepository()
 ) : ViewModel() {
@@ -77,6 +89,7 @@ class MapViewModel(
     private var searchJob: Job? = null
 
     init {
+        // Carga inicial del catálogo de 15 lugares turísticos misteriosos
         val all = repository.getAllPlaces()
         _uiState.update {
             it.copy(
@@ -89,9 +102,8 @@ class MapViewModel(
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Búsqueda en vivo con debounce de 400 ms para evitar animaciones espurias en cada tecla.
+     * CONTROL LÓGICO Y EVENTOS:
+     * Búsqueda en tiempo real con debounce de 400ms para optimizar las animaciones de cámara y renderizado del mapa.
      */
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
@@ -107,9 +119,8 @@ class MapViewModel(
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Selección de categoría con encuadre inteligente inmediato.
+     * CONTROL LÓGICO Y EVENTOS:
+     * Filtra los marcadores del mapa por categoría (Megalitos, Ciudades Antiguas, Enigmas, Leyendas).
      */
     fun onCategorySelected(category: Category?) {
         val targetCategory = if (_uiState.value.selectedCategory == category) null else category
@@ -122,12 +133,10 @@ class MapViewModel(
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Aplica el filtrado de lugares, cálculo de distancias y encuadre inteligente:
-     * - Si hay varios resultados: encuadre inteligente con Bounding Box.
-     * - Si hay un solo resultado: vuela a él con zoom 12.5.
-     * - Si no hay resultados: mantiene la cámara actual.
+     * CONTROL LÓGICO Y EVENTOS DE CÁMARA (Equivalente a MapController):
+     * Aplica los filtros de búsqueda y decide la estrategia de encuadre de la cámara:
+     * - Si hay múltiples resultados: Calcula el Bounding Box (caja delimitadora) y encuadra el grupo.
+     * - Si hay un solo resultado: Realiza una animación de vuelo (animateTo) con nivel de zoom 12.5.
      */
     private fun applyFiltersAndFrame(
         query: String,
@@ -137,14 +146,14 @@ class MapViewModel(
         val rawFiltered = repository.filterPlaces(query, category)
         val userLoc = _uiState.value.userLocation
 
-        // Ordenamiento por cercanía ("Cerca de mí") si está activo y se conoce la ubicación
+        // ACCESO A GEOLOCALIZACIÓN: Ordenamiento por proximidad GPS si la ubicación está disponible
         val processedPlaces = if (_uiState.value.isSortByProximity && userLoc != null) {
             GeoUtils.sortByProximity(rawFiltered, userLoc.first, userLoc.second).map { it.first }
         } else {
             rawFiltered
         }
 
-        // Distancias actualizadas
+        // ACCESO A GEOLOCALIZACIÓN: Cálculo de distancia geodésica desde la ubicación del usuario a cada lugar
         val distances = if (userLoc != null) {
             _uiState.value.allPlaces.associate { place ->
                 place.id to GeoUtils.calculateDistanceMeters(
@@ -164,7 +173,7 @@ class MapViewModel(
             processedPlaces.firstOrNull()
         }
 
-        // Cálculo de ruta de exploración si está activa
+        // MOTOR DE MAPAS: Cálculo de la distancia total de la ruta vectorial
         val routeDistance = if (_uiState.value.isRouteActive) {
             GeoUtils.calculateTotalRouteDistanceMeters(processedPlaces)
         } else {
@@ -205,9 +214,8 @@ class MapViewModel(
     }
 
     /**
-     * Acceso al hardware de geolocalización (android.location)
-     *
-     * Registra la posición del usuario en el dispositivo sin enviar datos a la red.
+     * ACCESO AL HARDWARE DE GEOLOCALIZACIÓN (android.location):
+     * Actualiza las coordenadas GPS del usuario en tiempo real desde el hardware.
      */
     fun onUserLocationUpdated(latitude: Double, longitude: Double) {
         _uiState.update { current ->
@@ -237,9 +245,8 @@ class MapViewModel(
     }
 
     /**
-     * Acceso al hardware de geolocalización (android.location)
-     *
-     * Centra la cámara del mapa en la ubicación del usuario.
+     * ACCESO AL HARDWARE DE GEOLOCALIZACIÓN:
+     * Vuela la cámara del mapa hacia las coordenadas exactas de la ubicación GPS del usuario.
      */
     fun onCenterOnUserLocation() {
         val loc = _uiState.value.userLocation
@@ -257,9 +264,8 @@ class MapViewModel(
     }
 
     /**
-     * Acceso al hardware de geolocalización (android.location)
-     *
-     * Alterna el modo "Cerca de mí" ordenando el carrusel por proximidad.
+     * ACCESO AL HARDWARE DE GEOLOCALIZACIÓN:
+     * Alterna la opción "Cerca de mí" para reordenar las tarjetas por distancia al usuario.
      */
     fun toggleSortByProximity() {
         val newSort = !_uiState.value.isSortByProximity
@@ -272,9 +278,8 @@ class MapViewModel(
     }
 
     /**
-     * Acceso al hardware de geolocalización (android.location)
-     *
-     * Gestiona la respuesta del diálogo de permisos de ubicación.
+     * ACCESO AL HARDWARE DE GEOLOCALIZACIÓN:
+     * Registra si el permiso de ubicación fue denegado.
      */
     fun onLocationPermissionResult(granted: Boolean) {
         _uiState.update {
@@ -284,13 +289,14 @@ class MapViewModel(
         }
     }
 
-    /**
-     * Acceso al hardware de geolocalización (android.location)
-     */
     fun setGpsDisabled(disabled: Boolean) {
         _uiState.update { it.copy(isGpsDisabled = disabled) }
     }
 
+    /**
+     * CONTROL LÓGICO Y EVENTOS DE CÁMARA:
+     * Selecciona un lugar y anima el vuelo de la cámara hacia sus coordenadas WGS84.
+     */
     fun onPlaceSelected(place: MysteryPlace, flyTo: Boolean = true) {
         _uiState.update { current ->
             current.copy(
@@ -304,6 +310,10 @@ class MapViewModel(
         }
     }
 
+    /**
+     * CONTROL LÓGICO Y EVENTOS DE CÁMARA:
+     * Evento al pulsar un marcador sobre el mapa.
+     */
     fun onMarkerClicked(place: MysteryPlace) {
         _uiState.update { current ->
             current.copy(
@@ -331,6 +341,10 @@ class MapViewModel(
         _uiState.update { it.copy(showDetailSheet = false) }
     }
 
+    /**
+     * CONTROL LÓGICO Y EVENTOS:
+     * Selecciona un lugar misterioso al azar y desplaza la cámara hacia él.
+     */
     fun onSurpriseMe() {
         val pool = _uiState.value.filteredPlaces.ifEmpty { _uiState.value.allPlaces }
         if (pool.isEmpty()) return
@@ -339,6 +353,10 @@ class MapViewModel(
         onPlaceSelected(randomPlace, flyTo = true)
     }
 
+    /**
+     * CONTROL LÓGICO Y EVENTOS:
+     * Restablece la vista planetaria del mapa (zoom 2.5, latitud 20.0, longitud 0.0).
+     */
     fun onResetWorldView() {
         _uiState.update { current ->
             current.copy(
@@ -348,9 +366,8 @@ class MapViewModel(
     }
 
     /**
-     * Operaciones del motor de mapas (tiles y gestos)
-     *
-     * Activa o desactiva la "Ruta de misterios", calculando la distancia y encuadrándola.
+     * OPERACIONES DEL MOTOR DE MAPAS:
+     * Activa o desactiva la polilínea de ruta que une los lugares misteriosos.
      */
     fun toggleRoute() {
         val willBeActive = !_uiState.value.isRouteActive
@@ -368,18 +385,16 @@ class MapViewModel(
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Coloca un marcador temporal "Mi hallazgo" al hacer toque largo sobre el mapa.
+     * CONTROL LÓGICO Y EVENTOS DE MAPA:
+     * Coloca un marcador temporal ("Mi hallazgo") ante un toque largo en cualquier punto del mapa.
      */
     fun onMapLongPress(lat: Double, lon: Double) {
         _uiState.update { it.copy(temporaryDiscovery = lat to lon) }
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Quita el marcador temporal "Mi hallazgo" ante un toque simple.
+     * CONTROL LÓGICO Y EVENTOS DE MAPA:
+     * Remueve el marcador temporal ante un toque simple sobre el mapa.
      */
     fun onMapSingleTap() {
         if (_uiState.value.temporaryDiscovery != null) {
@@ -388,9 +403,8 @@ class MapViewModel(
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Registra el nivel de zoom real reportado por el listener del mapa.
+     * CONTROL LÓGICO Y EVENTOS DE MAPA:
+     * Actualiza en el estado de la UI el nivel de zoom real reportado por el listener de osmdroid.
      */
     fun onMapZoomChanged(zoom: Double) {
         _uiState.update { it.copy(currentZoomLevel = zoom) }

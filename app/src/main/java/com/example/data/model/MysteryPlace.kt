@@ -55,5 +55,6 @@ data class MysteryPlace(
     val theMystery: String,
     val evidence: EvidenceLevel,
     val keywords: List<String>,
-    @DrawableRes val imageRes: Int? = null
+    @DrawableRes val imageRes: Int? = null,
+    val imageUrl: String? = null
 )

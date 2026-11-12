@@ -63,7 +63,7 @@ class PlacesRepository {
             theMystery = "¿Cómo bandas de cazadores-recolectores coordinaron semejante esfuerzo arquitectónico monumental y por qué el complejo entero fue enterrado intencionalmente bajo miles de toneladas de tierra?",
             evidence = EvidenceLevel.EN_DEBATE,
             keywords = listOf("gobekli tepe", "turquia", "anatolia", "neolitico preceramico", "santuario", "pilares", "templo antiguo"),
-            imageRes = R.drawable.img_stonehenge
+            imageRes = R.drawable.gobekli_tepe
         ),
         MysteryPlace(
             id = "carnac",
@@ -76,7 +76,7 @@ class PlacesRepository {
             theMystery = "A pesar de dos siglos de excavaciones, no existe consenso concluyente sobre si trazaban un complejo calendario telúrico-astronómico, defensas mágicas costeras o veneración a deidades subterráneas.",
             evidence = EvidenceLevel.EN_DEBATE,
             keywords = listOf("carnac", "menhir", "bretaña", "francia", "megalitos", "dolmen", "alineamiento"),
-            imageRes = R.drawable.img_stonehenge
+            imageRes = R.drawable.alineamientos_de_carnac
         ),
         MysteryPlace(
             id = "san_agustin",
@@ -89,7 +89,7 @@ class PlacesRepository {
             theMystery = "Se desconoce la identidad, lengua y estructura social de la civilización escultora, así como las causas de su declive y repentina desaparición siglos antes de la llegada de los conquistadores.",
             evidence = EvidenceLevel.EN_DEBATE,
             keywords = listOf("san agustin", "colombia", "huila", "macizo colombiano", "estatuas", "necropolis", "escultura megalitica"),
-            imageRes = R.drawable.img_stonehenge
+            imageRes = R.drawable.san_agustin
         ),
         MysteryPlace(
             id = "machu_picchu",
@@ -141,7 +141,7 @@ class PlacesRepository {
             theMystery = "Se desconoce el nombre original de la urbe, la lengua de sus fundadores, su forma de gobierno y los motivos precisos del incendio catastrófico que la destruyó hacia el siglo VII d. C.",
             evidence = EvidenceLevel.EN_DEBATE,
             keywords = listOf("teotihuacan", "mexico", "piramide del sol", "calzada de los muertos", "mesoamerica", "aztecas"),
-            imageRes = R.drawable.img_chichen_itza
+            imageRes = R.drawable.teotihuacan
         ),
         MysteryPlace(
             id = "tiwanaku",
@@ -154,7 +154,7 @@ class PlacesRepository {
             theMystery = "La asombrosa precisión milimétrica de cortes geométricos en forma de 'H' en andesita (una de las piedras más duras), y la técnica usada para encajar bloques de hasta 130 toneladas sin tracción animal.",
             evidence = EvidenceLevel.EN_DEBATE,
             keywords = listOf("tiwanaku", "puma punku", "bolivia", "titicaca", "puerta del sol", "megalitos andinos", "andesita"),
-            imageRes = R.drawable.img_machu_picchu
+            imageRes = R.drawable.tiwanaku
         ),
         MysteryPlace(
             id = "nazca",
@@ -180,7 +180,7 @@ class PlacesRepository {
             theMystery = "El apasionado debate geológico: mientras la corriente mayoritaria apunta a una fractura tectónica y erosión marina natural, varios investigadores sugieren terrazas talladas por el ser humano antes de la última glaciación.",
             evidence = EvidenceLevel.EN_DEBATE,
             keywords = listOf("yonaguni", "japon", "submarino", "monumento", "oceano", "terrazas", "ryukyu", "enigma marino"),
-            imageRes = R.drawable.img_loch_ness
+            imageRes = R.drawable.monumento_yonaguni
         ),
         MysteryPlace(
             id = "loch_ness",
@@ -199,8 +199,8 @@ class PlacesRepository {
             id = "las_lajas",
             name = "Santuario de Las Lajas",
             country = "Colombia (Ipiales, Nariño)",
-            latitude = 0.8114,
-            longitude = -77.5858,
+            latitude = 0.805575,
+            longitude = -77.586027,
             category = Category.LEYENDAS,
             whatWeKnow = "Espectacular basílica de estilo neogótico construida sobre un puente de 50 metros en el vertiginoso cañón del río Guáitara. La imagen de Nuestra Señora del Rosario permanece grabada en la piedra laja viva.",
             theMystery = "La tradición relata la milagrosa aparición en 1754 y la curación de una niña sordomuda; geológicamente la pigmentación parece penetrar la roca natural a varios centímetros de profundidad.",

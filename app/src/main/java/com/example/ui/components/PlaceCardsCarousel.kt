@@ -215,14 +215,15 @@ private fun MysteryPlaceCard(
         ) {
             Column {
                 // Cabecera con Foto representativa o tira luminosa
-                if (place.imageRes != null) {
+                if (place.imageRes != null || !place.imageUrl.isNullOrBlank()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(115.dp)
                     ) {
-                        Image(
-                            painter = painterResource(id = place.imageRes),
+                        PlaceImage(
+                            imageUrl = place.imageUrl,
+                            imageRes = place.imageRes,
                             contentDescription = place.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -314,7 +315,7 @@ private fun MysteryPlaceCard(
 
                 Column(modifier = Modifier.padding(14.dp)) {
                     // Si no había foto, mostrar badges aquí
-                    if (place.imageRes == null) {
+                    if (place.imageRes == null && place.imageUrl.isNullOrBlank()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,

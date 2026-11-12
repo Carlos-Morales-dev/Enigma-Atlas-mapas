@@ -6,16 +6,20 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 /**
- * Acceso al hardware de geolocalización (android.location)
+ * Módulo de utilidades geodésicas y cálculos matemáticos sobre la curvatura terrestre.
  *
- * Utilidades puras y testeables para cálculo geodésico de distancias,
- * formateo amigable de distancias métricas, ordenamiento por proximidad ("Cerca de mí")
- * y cálculo de límites geográficos (Bounding Box) para encuadre inteligente.
+ * Funcionalidades clave:
+ * - Cálculo de distancias geodésicas entre coordenadas WGS84 (`android.location.Location.distanceBetween` con respaldo Haversine en JVM).
+ * - Formateo de distancias a cadenas legibles en metros o kilómetros.
+ * - Ordenamiento por proximidad a la ubicación GPS del usuario.
+ * - Determinación de cajas delimitadoras ([GeoBounds] / Bounding Box) para el encuadre dinámico del mapa.
+ * - Cálculo de longitud total de rutas compuestas por múltiples puntos.
  */
 object GeoUtils {
 
     /**
-     * Representación geométrica pura de límites geográficos (Bounding Box).
+     * Estructura de datos que representa una caja delimitadora geográfica (Bounding Box).
+     * Define los límites máximos Norte, Sur, Este y Oeste de un grupo de coordenadas.
      */
     data class GeoBounds(
         val north: Double,
@@ -25,11 +29,11 @@ object GeoUtils {
     )
 
     /**
-     * Acceso al hardware de geolocalización (android.location)
+     * Calcula la distancia en metros entre dos puntos geográficos (latitud/longitud WGS84).
      *
-     * Calcula la distancia geodésica en metros entre dos coordenadas WGS84.
-     * Utiliza [android.location.Location.distanceBetween] cuando el runtime de Android está disponible
-     * y la fórmula de Haversine como respaldo matemáticamente riguroso para pruebas unitarias de JVM.
+     * 1. En dispositivo Android: Invoca `android.location.Location.distanceBetween`.
+     * 2. En pruebas unitarias de JVM: Utiliza la fórmula trigonométrica de Haversine
+     *    con el radio medio terrestre R = 6,371,000 metros.
      */
     fun calculateDistanceMeters(
         lat1: Double,
@@ -42,8 +46,8 @@ object GeoUtils {
             android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, results)
             results[0]
         } catch (_: RuntimeException) {
-            // Respaldo de Haversine para ejecución en JVM local sin mocks de Android
-            val earthRadius = 6371000.0 // Metros
+            // Respaldo de la fórmula de Haversine para ejecuciones locales en JVM
+            val earthRadius = 6371000.0 // Radio medio de la Tierra en metros
             val dLat = Math.toRadians(lat2 - lat1)
             val dLon = Math.toRadians(lon2 - lon1)
             val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -55,7 +59,7 @@ object GeoUtils {
     }
 
     /**
-     * Formatea una distancia en metros a una cadena legible en español (ej. "850 m", "12 km", "1.420 km").
+     * Formatea distancias numéricas en metros a cadenas legibles ("450 m", "12,4 km", "1.420 km").
      */
     fun formatDistance(meters: Float): String {
         if (meters < 0) return ""
@@ -79,10 +83,7 @@ object GeoUtils {
     }
 
     /**
-     * Acceso al hardware de geolocalización (android.location)
-     *
-     * Ordena una lista de lugares por cercanía a una posición de referencia (lat/lon de usuario),
-     * retornando cada lugar asociado a su distancia en metros.
+     * Ordena una lista de lugares según la distancia a las coordenadas de referencia del usuario.
      */
     fun sortByProximity(
         places: List<MysteryPlace>,
@@ -96,10 +97,8 @@ object GeoUtils {
     }
 
     /**
-     * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-     *
-     * Calcula la caja delimitadora (Bounding Box) que contiene exactamente a la colección de lugares dada.
-     * Retorna null si la lista está vacía.
+     * Calcula los límites geográficos (Norte, Sur, Este, Oeste) que abarcan exactamente a la colección
+     * de lugares dada. Retorna null si la lista está vacía.
      */
     fun calculateBoundingBox(places: List<MysteryPlace>): GeoBounds? {
         if (places.isEmpty()) return null
@@ -125,9 +124,7 @@ object GeoUtils {
     }
 
     /**
-     * Operaciones del motor de mapas (tiles y gestos)
-     *
-     * Calcula la distancia acumulada total de la ruta que une a los lugares dados en el orden de la lista.
+     * Calcula la distancia acumulada total en metros de una ruta que une secuencialmente los lugares de la lista.
      */
     fun calculateTotalRouteDistanceMeters(places: List<MysteryPlace>): Float {
         if (places.size < 2) return 0f

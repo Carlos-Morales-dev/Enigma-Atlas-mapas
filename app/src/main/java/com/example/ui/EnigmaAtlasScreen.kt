@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GpsOff
 import androidx.compose.material.icons.filled.LocationOff
@@ -71,6 +72,7 @@ import com.example.ui.components.MapFloatingControls
 import com.example.ui.components.OfflineNoticeBanner
 import com.example.ui.components.PlaceCardsCarousel
 import com.example.ui.components.PlaceDetailBottomSheet
+import com.example.ui.components.PlacesListBottomSheet
 import com.example.ui.components.TopSearchBarAndFilters
 import com.example.ui.map.OsmMapView
 import com.example.ui.theme.EnigmaBorder
@@ -84,11 +86,13 @@ import org.osmdroid.views.MapView
 import java.util.Locale
 
 /**
- * Contenedor MapView y Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
+ * Pantalla principal de la aplicación Enigma Atlas.
  *
- * Pantalla principal de Enigma Atlas.
- * Coordina la visualización cartográfica, geolocalización local sin envío a servidores,
- * encuadre inteligente Bounding Box, trazado de rutas de misterios y eventos del mapa.
+ * Funcionalidades clave:
+ * - Alojamiento del visor de mapas [OsmMapView] en la capa base de Compose.
+ * - Gestión de permisos runtime de geolocalización, aviso explícito de privacidad y estado del hardware GPS.
+ * - Sincronización entre buscador en vivo, filtros de categoría, carrusel de tarjetas y marcadores del mapa.
+ * - Detección de estado de red con `ConnectivityManager` para notificación de modo offline.
  */
 @androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
@@ -99,14 +103,16 @@ fun EnigmaAtlasScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Referencia al MapView para control de zoom real directo sin recentrar
+    // Referencia al MapView nativo para operarlo directamente desde los controles de zoom flotantes
     var activeMapView by remember { mutableStateOf<MapView?>(null) }
 
-    // Estado del diálogo de privacidad de ubicación
+    // Control de visibilidad del diálogo de privacidad previo a solicitar permiso de ubicación
     var showLocationPrivacyDialog by remember { mutableStateOf(false) }
 
-    // Acceso al hardware de geolocalización (android.location)
-    // Comprobación inicial de permisos
+    // Control de visibilidad del catálogo en lista desplegable BottomSheet
+    var showPlacesListSheet by remember { mutableStateOf(false) }
+
+    // Comprobación inicial de permisos runtime FINE/COARSE LOCATION
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -120,8 +126,7 @@ fun EnigmaAtlasScreen(
         )
     }
 
-    // Acceso al hardware de geolocalización (android.location)
-    // Lanzador para solicitar permisos en tiempo de ejecución
+    // Lanzador para solicitud de permisos runtime en tiempo de ejecución
     val locationPermissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissionsMap ->
@@ -138,7 +143,7 @@ fun EnigmaAtlasScreen(
         }
     }
 
-    // Monitoreo seguro de conectividad a Internet (F7 - Robustez sin crashes)
+    // Registra callback de conectividad para alertar sobre el estado de red
     DisposableEffect(context) {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -179,7 +184,7 @@ fun EnigmaAtlasScreen(
         map
     }
 
-    // Acción para solicitar ubicación con aviso explícito de privacidad en dispositivo
+    // Acción para solicitar ubicación con aviso previo de privacidad en el dispositivo
     val requestLocationWithPrivacy = {
         if (hasLocationPermission) {
             viewModel.onCenterOnUserLocation()
@@ -193,7 +198,7 @@ fun EnigmaAtlasScreen(
             .fillMaxSize()
             .background(MysteryDarkBackground)
     ) {
-        // 1. Contenedor MapView con renderizado y overlays
+        // Visor de mapas OpenStreetMap (OsmMapView)
         OsmMapView(
             places = uiState.filteredPlaces,
             selectedPlace = uiState.selectedPlace,
@@ -223,7 +228,7 @@ fun EnigmaAtlasScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Viñetas superior e inferior para fusionar el mapa con la interfaz flotante
+        // Viñetas oscuras superior e inferior para integrar visualmente el mapa
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -253,7 +258,7 @@ fun EnigmaAtlasScreen(
                 )
         )
 
-        // 2. Cabecera flotante con buscador, filtros y botón "Cerca de mí"
+        // Cabecera flotante: Buscador en vivo, Filtros de categoría y Banners informativos
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -265,7 +270,7 @@ fun EnigmaAtlasScreen(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
 
-            // Banner informativo si el permiso de ubicación fue denegado
+            // Banner explicativo cuando el usuario deniega el permiso de ubicación
             AnimatedVisibility(
                 visible = uiState.locationPermissionDenied,
                 enter = slideInVertically() + fadeIn(),
@@ -317,7 +322,7 @@ fun EnigmaAtlasScreen(
                 }
             }
 
-            // Banner informativo si el GPS está desactivado
+            // Banner explicativo si el sensor GPS se encuentra deshabilitado en Android
             AnimatedVisibility(
                 visible = uiState.isGpsDisabled && hasLocationPermission,
                 enter = slideInVertically() + fadeIn(),
@@ -352,8 +357,7 @@ fun EnigmaAtlasScreen(
                 }
             }
 
-            // Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-            // Banner flotante para el marcador temporal "Mi hallazgo"
+            // Tarjeta informativa flotante cuando se pulsa sostenidamente el mapa ("Mi hallazgo")
             uiState.temporaryDiscovery?.let { (lat, lon) ->
                 Card(
                     shape = RoundedCornerShape(14.dp),
@@ -428,34 +432,63 @@ fun EnigmaAtlasScreen(
             )
         }
 
-        // 3. Controles flotantes: Zoom real sin recentrar, Mi ubicación y Ruta de misterios
+        // Controles flotantes laterales: Zoom real sin des-centrar y Botón Mi Ubicación
         MapFloatingControls(
             currentZoomLevel = uiState.currentZoomLevel,
-            isRouteActive = uiState.isRouteActive,
-            routeDistanceMeters = uiState.routeDistanceMeters,
             hasLocationPermission = hasLocationPermission,
             onZoomIn = {
-                // Operación directa en MapView: preserva centro y gestos del usuario sin saltos
                 activeMapView?.controller?.zoomIn()
             },
             onZoomOut = {
                 activeMapView?.controller?.zoomOut()
             },
             onMyLocationClick = requestLocationWithPrivacy,
-            onToggleRoute = viewModel::toggleRoute,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = 14.dp)
         )
 
-        // 4. Carrusel inferior sincronizado con distancias "Cerca de mí"
+        // Carrusel inferior de tarjetas y acceso al catálogo
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(bottom = 6.dp)
-                .fillMaxWidth()
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Surface(
+                onClick = { showPlacesListSheet = true },
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xF20B1124),
+                border = BorderStroke(1.2.dp, EnigmaCyan),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .padding(bottom = 6.dp)
+                    .testTag("btn_open_places_list_above_carousel")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
+                        contentDescription = "Ver lista completa",
+                        tint = EnigmaCyan,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Ver catálogo en lista (${uiState.filteredPlaces.size})",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.5.sp
+                        ),
+                        color = EnigmaCyan
+                    )
+                }
+            }
+
             PlaceCardsCarousel(
                 places = uiState.filteredPlaces,
                 selectedPlace = uiState.selectedPlace,
@@ -469,7 +502,7 @@ fun EnigmaAtlasScreen(
             )
         }
 
-        // 5. Ficha de detalle BottomSheet con "Cómo llegar"
+        // Ficha modal de detalle (BottomSheet)
         if (uiState.showDetailSheet && uiState.selectedPlace != null) {
             PlaceDetailBottomSheet(
                 place = uiState.selectedPlace!!,
@@ -480,8 +513,23 @@ fun EnigmaAtlasScreen(
             )
         }
 
-        // Acceso al hardware de geolocalización (android.location)
-        // Diálogo explícito de privacidad previa a la solicitud del permiso
+        // Catálogo completo en lista desplegable
+        if (showPlacesListSheet) {
+            PlacesListBottomSheet(
+                places = uiState.filteredPlaces,
+                selectedPlace = uiState.selectedPlace,
+                placeDistances = uiState.placeDistances,
+                onDismiss = { showPlacesListSheet = false },
+                onSelectPlace = { place ->
+                    viewModel.onPlaceSelected(place, flyTo = true)
+                },
+                onOpenDetail = { place ->
+                    viewModel.onOpenDetail(place)
+                }
+            )
+        }
+
+        // Diálogo explícito de privacidad previo a solicitar ubicación
         if (showLocationPrivacyDialog) {
             AlertDialog(
                 onDismissRequest = { showLocationPrivacyDialog = false },

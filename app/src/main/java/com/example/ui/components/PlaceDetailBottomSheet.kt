@@ -130,7 +130,7 @@ fun PlaceDetailBottomSheet(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Fotografía representativa del lugar (Hero Image Banner)
-            if (place.imageRes != null) {
+            if (place.imageRes != null || !place.imageUrl.isNullOrBlank()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -138,8 +138,9 @@ fun PlaceDetailBottomSheet(
                         .clip(RoundedCornerShape(18.dp))
                         .shadow(10.dp, RoundedCornerShape(18.dp))
                 ) {
-                    Image(
-                        painter = painterResource(id = place.imageRes),
+                    PlaceImage(
+                        imageUrl = place.imageUrl,
+                        imageRes = place.imageRes,
                         contentDescription = place.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()

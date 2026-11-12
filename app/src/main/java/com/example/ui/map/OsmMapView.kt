@@ -50,11 +50,16 @@ import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 /**
- * Contenedor MapView y Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
+ * Componente Composable principal para la visualización de OpenStreetMap utilizando osmdroid.
  *
- * Vista interactiva de OpenStreetMap con soporte de geolocalización en dispositivo,
- * overlays profesionales (Escala, Brújula, Atribución clicable ODbL), eventos táctiles (toque largo/simple),
- * trazado de rutas de exploración, encuadre inteligente por Bounding Box y caché de íconos.
+ * Funcionalidades clave:
+ * - Integración del visor nativo [MapView] dentro del flujo declarativo de Jetpack Compose mediante [AndroidView].
+ * - Configuración del motor de mosaicos (Tiles Mapnik), caché en SharedPreferences y filtro cartográfico.
+ * - Capas nativas (Overlays): Escala métrica, Brújula magnética, Atribución ODbL de OSM y receptor de eventos táctiles.
+ * - Renderizado de marcadores dinámicos vectoriales dibujados con Canvas 2D y trazado de rutas ([Polyline]).
+ * - Geolocalización por GPS mediante [GpsMyLocationProvider] y [MyLocationNewOverlay].
+ * - Control de animación de cámara (`animateTo`) y encuadre por área ([zoomToBoundingBox]).
+ * - Gestión eficiente del ciclo de vida para ahorro de batería y prevención de fugas de memoria.
  */
 @Composable
 fun OsmMapView(
@@ -76,11 +81,12 @@ fun OsmMapView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // Almacenamiento persistente para la caché de tiles de osmdroid
     val sharedPrefs = remember(context) {
         context.getSharedPreferences("osmdroid_enigma_atlas", Context.MODE_PRIVATE)
     }
 
-    // Caché de íconos de marcadores (clave: categoría + estado seleccionado)
+    // Caché en memoria para los íconos de marcadores generados con Canvas
     val markerIconCache = remember { mutableMapOf<Pair<Category, Boolean>, Drawable>() }
 
     fun getCachedMarkerIcon(category: Category, isSelected: Boolean): Drawable {
@@ -89,57 +95,56 @@ fun OsmMapView(
         }
     }
 
-    // Caché para el marcador especial de "Mi hallazgo"
+    // Ícono para el marcador de posición temporal ("Mi hallazgo")
     val discoveryIcon = remember {
         createDiscoveryMarkerIcon(context)
     }
 
-    // Overlay de ubicación del usuario
+    // Referencia al overlay de geolocalización por GPS
     val locationOverlayRef = remember { arrayOfNulls<MyLocationNewOverlay>(1) }
 
+    // Inicialización del MapView nativo de osmdroid
     val mapView = remember(context) {
+        // Identificación de la aplicación ante los servidores de OpenStreetMap
         Configuration.getInstance().userAgentValue = context.packageName
         Configuration.getInstance().load(context, sharedPrefs)
 
         MapView(context).apply {
+            // Configuración de la fuente de mosaicos Mapnik
             setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            setBuiltInZoomControls(false)
-            minZoomLevel = 2.0
+            setMultiTouchControls(true) // Gestos multitáctiles para zoom y desplazamiento
+            setBuiltInZoomControls(false) // Desactiva los botones flotantes nativos
+            minZoomLevel = 2.2
             maxZoomLevel = 18.0
 
-            // Operaciones del motor de mapas (tiles y gestos)
-            // Filtro cartográfico zafiro y pizarra nocturna
-            val invertMatrix = ColorMatrix(floatArrayOf(
-                -1f,  0f,  0f, 0f, 255f,
-                 0f, -1f,  0f, 0f, 255f,
-                 0f,  0f, -1f, 0f, 255f,
-                 0f,  0f,  0f, 1f,   0f
-            ))
-            val desaturateMatrix = ColorMatrix().apply { setSaturation(0.12f) }
-            val tintMatrix = ColorMatrix(floatArrayOf(
-                0.60f, 0f,    0f,    0f,  6f,
-                0f,    0.72f, 0f,    0f, 14f,
-                0f,    0f,    1.18f, 0f, 34f,
-                0f,    0f,    0f,    1f,  0f
+            // Restricción geográfica para evitar duplicación del mapa mundial
+            isVerticalMapRepetitionEnabled = false
+            isHorizontalMapRepetitionEnabled = false
+            setScrollableAreaLimitDouble(BoundingBox(85.0, 180.0, -85.0, -180.0))
+
+            // Filtro de color para la capa de mosaicos
+            val desaturateMatrix = ColorMatrix().apply { setSaturation(0.65f) }
+            val atlasTintMatrix = ColorMatrix(floatArrayOf(
+                0.98f, 0.04f, 0.00f, 0f,   6f,
+                0.02f, 0.94f, 0.04f, 0f,   4f,
+                0.00f, 0.08f, 1.05f, 0f,  10f,
+                0.00f, 0.00f, 0.00f, 1f,   0f
             ))
             val cartographyFilter = ColorMatrix().apply {
-                postConcat(invertMatrix)
                 postConcat(desaturateMatrix)
-                postConcat(tintMatrix)
+                postConcat(atlasTintMatrix)
             }
             overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(cartographyFilter))
-            overlayManager.tilesOverlay.loadingBackgroundColor = AndroidColor.parseColor("#060913")
-            overlayManager.tilesOverlay.loadingLineColor = AndroidColor.parseColor("#141E38")
+            overlayManager.tilesOverlay.loadingBackgroundColor = AndroidColor.parseColor("#F1ECE1")
+            overlayManager.tilesOverlay.loadingLineColor = AndroidColor.parseColor("#CBD5E1")
 
-            // Contenedor MapView & Control lógico y eventos (equivalente a OnMapReadyCallback)
-            // Fija centro y zoom iniciales una vez el mapa tiene dimensiones medidas
+            // Posicionamiento inicial de la cámara al medir el mapa por primera vez
             addOnFirstLayoutListener { _, _, _, _, _ ->
                 controller.setZoom(2.5)
                 controller.setCenter(GeoPoint(20.0, 0.0))
             }
 
-            // Complementos de mapa: ScaleBarOverlay (Escala métrica)
+            // Capa 1: Escala métrica gráfica
             val scaleBarOverlay = ScaleBarOverlay(this).apply {
                 setCentred(false)
                 setScaleBarOffset(24, 180)
@@ -148,24 +153,23 @@ fun OsmMapView(
             }
             overlays.add(scaleBarOverlay)
 
-            // Complementos de mapa: CompassOverlay (Brújula)
+            // Capa 2: Brújula magnética
             val compassOverlay = CompassOverlay(context, InternalCompassOrientationProvider(context), this).apply {
                 enableCompass()
                 setCompassCenter(36f, 36f)
             }
             overlays.add(compassOverlay)
 
-            // Complementos de mapa: CopyrightOverlay (Atribución ODbL oficial y clicable)
+            // Capa 3: Atribución legal ODbL de OpenStreetMap
             val copyrightOverlay = CopyrightOverlay(context).apply {
                 setTextSize(10)
-                setTextColor(AndroidColor.parseColor("#94A3B8"))
+                setTextColor(AndroidColor.parseColor("#475569"))
                 setAlignRight(true)
                 setOffset(16, 150)
             }
             overlays.add(copyrightOverlay)
 
-            // Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-            // MapEventsOverlay para toque largo (Mi hallazgo) y toque simple (quitar)
+            // Capa 4: Capturador de eventos táctiles (toque largo y toque simple)
             val eventsOverlay = MapEventsOverlay(object : MapEventsReceiver {
                 override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
                     onMapSingleTap()
@@ -182,7 +186,7 @@ fun OsmMapView(
             })
             overlays.add(eventsOverlay)
 
-            // MapListener para registrar zoom y scroll en tiempo real
+            // Escuchador de cambios en el nivel de zoom
             addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean = false
                 override fun onZoom(event: ZoomEvent?): Boolean {
@@ -191,8 +195,7 @@ fun OsmMapView(
                 }
             })
 
-            // Acceso al hardware de geolocalización (android.location)
-            // MyLocationNewOverlay + GpsMyLocationProvider
+            // Capa 5: Overlay de geolocalización con sensor GPS del dispositivo
             val locationProvider = GpsMyLocationProvider(context)
             val myLocationOverlay = MyLocationNewOverlay(locationProvider, this).apply {
                 setDrawAccuracyEnabled(true)
@@ -207,13 +210,12 @@ fun OsmMapView(
         }
     }
 
-    // Exportar la instancia del MapView para control directo de zoom real
+    // Exporta la referencia del MapView para control externo
     LaunchedEffect(mapView) {
         mapViewInstance?.invoke(mapView)
     }
 
-    // Acceso al hardware de geolocalización (android.location)
-    // Habilitar o deshabilitar overlay según permisos
+    // Activa o desactiva la recepción de GPS según los permisos
     LaunchedEffect(hasLocationPermission) {
         val overlay = locationOverlayRef[0]
         if (hasLocationPermission) {
@@ -223,7 +225,7 @@ fun OsmMapView(
         }
     }
 
-    // Manejo de ciclo de vida del MapView y ahorro de batería
+    // Manejo del ciclo de vida para ahorro de batería
     DisposableEffect(lifecycleOwner, mapView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -234,7 +236,6 @@ fun OsmMapView(
                     }
                 }
                 Lifecycle.Event.ON_PAUSE -> {
-                    // Detener actualizaciones de ubicación en onPause para ahorrar batería
                     locationOverlayRef[0]?.disableMyLocation()
                     mapView.onPause()
                 }
@@ -249,16 +250,14 @@ fun OsmMapView(
         }
     }
 
-    // Actualización de marcadores, polilínea de ruta y hallazgo temporal
+    // Actualización de capas dinámicas (marcadores, polilínea de ruta y hallazgo temporal)
     LaunchedEffect(places, selectedPlace, isRouteActive, temporaryDiscovery) {
-        // Remover marcadores antiguos y polilíneas
         mapView.overlays.removeAll { it is Marker || it is Polyline }
 
-        // Operaciones del motor de mapas (tiles y gestos)
-        // Dibujar polilínea de ruta de misterios conectando los lugares filtrados
+        // Trazado de polilínea de ruta
         if (isRouteActive && places.size > 1) {
             val routePolyline = Polyline(mapView).apply {
-                outlinePaint.color = AndroidColor.parseColor("#22D3EE") // Cian aurora
+                outlinePaint.color = AndroidColor.parseColor("#22D3EE")
                 outlinePaint.strokeWidth = 10f
                 outlinePaint.strokeCap = Paint.Cap.ROUND
                 outlinePaint.strokeJoin = Paint.Join.ROUND
@@ -267,7 +266,7 @@ fun OsmMapView(
             mapView.overlays.add(routePolyline)
         }
 
-        // Colocar marcadores con íconos cacheados
+        // Renderizado de marcadores de lugares
         places.forEach { place ->
             val isSelected = place.id == selectedPlace?.id
             val marker = Marker(mapView).apply {
@@ -284,8 +283,7 @@ fun OsmMapView(
             mapView.overlays.add(marker)
         }
 
-        // Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-        // Marcador temporal "Mi hallazgo"
+        // Marcador de toque largo ("Mi hallazgo")
         temporaryDiscovery?.let { (lat, lon) ->
             val discoveryMarker = Marker(mapView).apply {
                 position = GeoPoint(lat, lon)
@@ -301,8 +299,7 @@ fun OsmMapView(
         mapView.invalidate()
     }
 
-    // Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-    // Animación suave de cámara puntual
+    // Animación de vuelo puntual de cámara (animateTo)
     LaunchedEffect(cameraTarget?.timestamp) {
         cameraTarget?.let { target ->
             val point = GeoPoint(target.latitude, target.longitude)
@@ -310,8 +307,7 @@ fun OsmMapView(
         }
     }
 
-    // Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
-    // Encuadre inteligente con Bounding Box y padding de animación
+    // Encuadre automático por Bounding Box
     LaunchedEffect(boundingBoxTarget?.timestamp) {
         boundingBoxTarget?.let { boxTarget ->
             val box = BoundingBox(
@@ -320,7 +316,6 @@ fun OsmMapView(
                 boxTarget.bounds.south,
                 boxTarget.bounds.west
             )
-            // zoomToBoundingBox con animación y padding de 220px para no solapar con controles
             mapView.zoomToBoundingBox(box, true, 220)
         }
     }
@@ -334,9 +329,7 @@ fun OsmMapView(
 }
 
 /**
- * Operaciones del motor de mapas (tiles y gestos)
- *
- * Marcador especial dorado para "Mi hallazgo" colocado por toque largo.
+ * Genera el ícono vectorial dorado para el marcador temporal "Mi hallazgo".
  */
 private fun createDiscoveryMarkerIcon(context: Context): Drawable {
     val size = 96
@@ -376,9 +369,7 @@ private fun createDiscoveryMarkerIcon(context: Context): Drawable {
 }
 
 /**
- * Operaciones del motor de mapas (tiles y gestos)
- *
- * Genera un pin tridimensional con gradiente lumínico y núcleo de perla reflectante.
+ * Genera marcadores vectoriales tridimensionales en formato de gota con gradiente lineal y gema reflectante.
  */
 private fun createLuxuryMarkerIcon(
     context: Context,
@@ -392,6 +383,7 @@ private fun createLuxuryMarkerIcon(
 
     val baseColor = category.color.toArgb()
 
+    // Sombra en la base
     val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = AndroidColor.argb(100, 0, 0, 0)
         style = Paint.Style.FILL
@@ -404,6 +396,7 @@ private fun createLuxuryMarkerIcon(
         shadowPaint
     )
 
+    // Halo luminoso al estar seleccionado
     if (isSelected) {
         val outerAuraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = AndroidColor.argb(80, 246, 193, 75)
@@ -422,6 +415,7 @@ private fun createLuxuryMarkerIcon(
         canvas.drawCircle(width / 2f, haloCenterY, haloRadius - 4f, innerAuraPaint)
     }
 
+    // Silueta en forma de gota
     val pinPath = Path().apply {
         val centerX = width / 2f
         val headRadius = width * 0.36f
@@ -433,6 +427,7 @@ private fun createLuxuryMarkerIcon(
         close()
     }
 
+    // Relleno con gradiente lineal
     val bodyShader = LinearGradient(
         0f, 0f, 0f, height * 0.88f,
         lightenColor(baseColor, 0.25f),
@@ -445,6 +440,7 @@ private fun createLuxuryMarkerIcon(
     }
     canvas.drawPath(pinPath, bodyPaint)
 
+    // Borde exterior
     val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = if (isSelected) AndroidColor.parseColor("#F6C14B") else AndroidColor.parseColor("#060913")
         style = Paint.Style.STROKE
@@ -452,6 +448,7 @@ private fun createLuxuryMarkerIcon(
     }
     canvas.drawPath(pinPath, strokePaint)
 
+    // Perla reflectante interior
     val innerRadius = width * 0.17f
     val innerY = width * 0.36f + 6f
     val pearlShader = RadialGradient(
@@ -466,6 +463,7 @@ private fun createLuxuryMarkerIcon(
     }
     canvas.drawCircle(width / 2f, innerY, innerRadius, pearlPaint)
 
+    // Núcleo con el color de la categoría
     val gemShader = RadialGradient(
         width / 2f - 1f, innerY - 1f, innerRadius * 0.65f,
         lightenColor(baseColor, 0.3f),
@@ -478,6 +476,7 @@ private fun createLuxuryMarkerIcon(
     }
     canvas.drawCircle(width / 2f, innerY, innerRadius * 0.65f, gemPaint)
 
+    // Brillo especular
     val glintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = AndroidColor.WHITE
         style = Paint.Style.FILL

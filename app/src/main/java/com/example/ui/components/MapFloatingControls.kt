@@ -16,11 +16,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.WifiOff
@@ -45,33 +43,29 @@ import com.example.ui.theme.EnigmaBorder
 import com.example.ui.theme.EnigmaCyan
 import com.example.ui.theme.EnigmaGold
 import com.example.ui.theme.EnigmaTextSecondary
-import com.example.util.GeoUtils
 import java.util.Locale
 
 /**
- * Control lógico y eventos (equivalente a OnMapReadyCallback / MapController)
+ * Controles flotantes sobre el mapa.
  *
- * Controles flotantes sobre el mapa:
- * - Etiqueta pequeña con nivel de zoom actual en tiempo real
- * - Botones de Zoom In (+) y Zoom Out (-) que operan directamente sobre el zoom real del MapView sin recentrar
- * - Botón "Mi ubicación" (GpsMyLocationProvider + MyLocationNewOverlay)
- * - Botón "Ruta de misterios" (Polyline de lugares filtrados)
+ * Funcionalidades clave:
+ * - [onZoomIn] y [onZoomOut] invocan directamente `activeMapView.controller.zoomIn()` y `zoomOut()`,
+ *   modificando el nivel de zoom y conservando el centro geográfico actual.
+ * - Muestra una etiqueta con el nivel de zoom real reportado por el `MapListener` de osmdroid.
+ * - Incluye el botón para centrar el mapa en la posición GPS del usuario.
  */
 @Composable
 fun MapFloatingControls(
     currentZoomLevel: Double,
-    isRouteActive: Boolean,
-    routeDistanceMeters: Float,
     hasLocationPermission: Boolean,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onMyLocationClick: () -> Unit,
-    onToggleRoute: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val controlBorder = Brush.verticalGradient(
         colors = listOf(
-            EnigmaGold.copy(alpha = 0.5f),
+            EnigmaGold.copy(alpha = 0.55f),
             EnigmaCyan.copy(alpha = 0.35f)
         )
     )
@@ -80,40 +74,6 @@ fun MapFloatingControls(
         modifier = modifier,
         horizontalAlignment = Alignment.End
     ) {
-        // Indicador flotante de distancia total de la ruta cuando está activa
-        if (isRouteActive && routeDistanceMeters > 0) {
-            Surface(
-                color = Color(0xF20B1124),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.2.dp, EnigmaCyan),
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .testTag("route_distance_badge")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AltRoute,
-                        contentDescription = null,
-                        tint = EnigmaCyan,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Ruta: ${GeoUtils.formatDistance(routeDistanceMeters)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = EnigmaCyan
-                    )
-                }
-            }
-        }
-
         Card(
             modifier = Modifier
                 .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = EnigmaGold.copy(alpha = 0.15f))
@@ -126,7 +86,7 @@ fun MapFloatingControls(
                 modifier = Modifier.padding(horizontal = 3.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Etiqueta pequeña del nivel de zoom actual (MapListener)
+                // Indicación numérica del nivel de zoom actual
                 Text(
                     text = String.format(Locale.ROOT, "%.1fx", currentZoomLevel),
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -139,7 +99,7 @@ fun MapFloatingControls(
                         .testTag("zoom_level_label")
                 )
 
-                // Zoom In
+                // Botón Zoom In (+): Acerca la vista manteniendo el centro actual
                 IconButton(
                     onClick = onZoomIn,
                     modifier = Modifier
@@ -161,7 +121,7 @@ fun MapFloatingControls(
                         .background(EnigmaBorder)
                 )
 
-                // Zoom Out
+                // Botón Zoom Out (-): Aleja la vista manteniendo el centro actual
                 IconButton(
                     onClick = onZoomOut,
                     modifier = Modifier
@@ -183,8 +143,7 @@ fun MapFloatingControls(
                         .background(EnigmaBorder)
                 )
 
-                // Acceso al hardware de geolocalización (android.location)
-                // Botón "Mi ubicación"
+                // Botón "Mi ubicación": Desplaza la cámara a la posición reportada por el GPS
                 IconButton(
                     onClick = onMyLocationClick,
                     modifier = Modifier
@@ -198,36 +157,13 @@ fun MapFloatingControls(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-
-                Box(
-                    modifier = Modifier
-                        .width(22.dp)
-                        .size(1.dp)
-                        .background(EnigmaBorder)
-                )
-
-                // Operaciones del motor de mapas (tiles y gestos)
-                // Botón "Ruta de misterios"
-                IconButton(
-                    onClick = onToggleRoute,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .testTag("btn_toggle_route")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AltRoute,
-                        contentDescription = "Ruta de misterios",
-                        tint = if (isRouteActive) EnigmaCyan else EnigmaTextSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
         }
     }
 }
 
 /**
- * Notificación informativa cuando no hay conexión (F7 - Robustez sin crashes).
+ * Banner informativo que se muestra cuando el dispositivo no tiene conexión a red.
  */
 @Composable
 fun OfflineNoticeBanner(

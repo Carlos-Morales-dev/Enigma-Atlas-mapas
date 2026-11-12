@@ -99,7 +99,7 @@ fun TopSearchBarAndFilters(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
             .shadow(16.dp, RoundedCornerShape(24.dp), ambientColor = EnigmaGold.copy(alpha = 0.15f)),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
@@ -110,62 +110,70 @@ fun TopSearchBarAndFilters(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 12.dp, start = 12.dp, end = 12.dp)
+                .padding(top = 10.dp, bottom = 12.dp, start = 10.dp, end = 10.dp)
         ) {
-            // 1. Fila de logotipo y acciones rápidas ("Mundial" y "Azar")
+            // 1. Fila de logotipo y acciones rápidas ("Mundial" y "Azar") con diseño 100% responsivo
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Emblema y título
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Emblema y título con peso flexible para no empujar los botones
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(end = 6.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(34.dp)
                             .background(
                                 brush = Brush.radialGradient(
                                     colors = listOf(EnigmaGoldBright, EnigmaGold, Color(0xFF7A5400))
                                 ),
                                 shape = CircleShape
                             )
-                            .shadow(8.dp, CircleShape, ambientColor = EnigmaGold),
+                            .shadow(6.dp, CircleShape, ambientColor = EnigmaGold),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Explore,
                             contentDescription = null,
                             tint = Color(0xFF0F172A),
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Column {
                         Text(
                             text = "Enigma Atlas",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 0.6.sp
+                                letterSpacing = 0.4.sp
                             ),
-                            color = EnigmaGold
+                            color = EnigmaGold,
+                            maxLines = 1
                         )
                         Text(
-                            text = "Lugares misteriosos del mundo",
+                            text = "Misterios del mundo",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.5.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium
                             ),
-                            color = EnigmaTextSecondary
+                            color = EnigmaTextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
-                // Acciones rápidas con suficiente espacio sin apretarse
+                // Acciones rápidas completamente visibles en cualquier pantalla
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Surface(
                         onClick = onResetWorldView,
@@ -178,15 +186,15 @@ fun TopSearchBarAndFilters(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 9.dp)
+                            modifier = Modifier.padding(horizontal = 7.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Public,
                                 contentDescription = "Vista mundial",
                                 tint = EnigmaCyan,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Mundial",
                                 style = MaterialTheme.typography.labelSmall.copy(
@@ -209,15 +217,15 @@ fun TopSearchBarAndFilters(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 9.dp)
+                            modifier = Modifier.padding(horizontal = 7.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = "¡Sorpréndeme!",
                                 tint = EnigmaGold,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Azar",
                                 style = MaterialTheme.typography.labelSmall.copy(
