@@ -1,0 +1,38 @@
+<resources>
+    <string name="app_name">Enigma Atlas</string>
+    <string name="search_placeholder">Buscar lugar, país o misterio…</string>
+    <string name="empty_state_title">No encontramos ese misterio… todavía</string>
+    <string name="empty_state_subtitle">Prueba buscando otro país, civilización o cambia de categoría</string>
+    <string name="osm_attribution">© Colaboradores de OpenStreetMap (ODbL)</string>
+
+    <!-- Categorías -->
+    <string name="category_all">Todos</string>
+    <string name="category_megaliths">Megalitos</string>
+    <string name="category_ancient_cities">Ciudades antiguas</string>
+    <string name="category_enigmas">Enigmas</string>
+    <string name="category_legends">Leyendas</string>
+
+    <!-- Niveles de evidencia -->
+    <string name="evidence_consensus">Consenso científico</string>
+    <string name="evidence_debated">En debate</string>
+    <string name="evidence_legend">Leyenda</string>
+
+    <!-- Ficha de detalle -->
+    <string name="label_what_we_know">Qué se sabe</string>
+    <string name="label_the_mystery">El misterio</string>
+    <string name="label_coordinates">Coordenadas</string>
+    <string name="btn_fly_to_place">Volar al lugar</string>
+    <string name="btn_surprise_me">¡Sorpréndeme!</string>
+    <string name="btn_world_view">Vista mundial</string>
+    <string name="btn_close">Cerrar</string>
+
+    <!-- Accesibilidad -->
+    <string name="desc_zoom_in">Acercar mapa</string>
+    <string name="desc_zoom_out">Alejar mapa</string>
+    <string name="desc_clear_search">Limpiar búsqueda</string>
+    <string name="desc_place_marker">Marcador del lugar</string>
+    <string name="desc_category_icon">Icono de categoría</string>
+
+    <!-- Conectividad -->
+    <string name="offline_notice">Sin conexión a Internet. Se usan los mapas almacenados en caché.</string>
+</resources>

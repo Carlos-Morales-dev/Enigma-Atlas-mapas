@@ -1,0 +1,8 @@
+{
+  "name": "Enigma Atlas",
+  "description": "Explora lugares turísticos misteriosos del mundo en un mapa interactivo con lo que se sabe y el enigma detrás de cada uno.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
